@@ -8,7 +8,7 @@ namespace TeacherApp.Database;
 public record TeacherRecord(string TeacherId, string Name, string Email, string PasswordHash);
 public record ClassRecord(string ClassId, string ClassName, string Subject, string TeacherId, string ClassCode = "");
 public record StudentRecord(string StudentId, string Name, string Email, string RegisteredDeviceId, string DeviceSecret, string ClassId);
-public record SessionRecord(string SessionId, string ClassId, string TeacherId, string Subject, long StartTime, long ExpirationTime, string RandomNonce, string Status);
+public record SessionRecord(string SessionId, string ClassId, string TeacherId, string Subject, long StartTime, long ExpirationTime, string RandomNonce, string Status, string AttendanceMode = "BLE");
 public record AttendanceRecord(string AttendanceId, string SessionId, string StudentId, long Timestamp, string VerificationStatus, string RouteType, int? RssiEvidence, int HopCount, string? ViaStudent, bool Synced);
 public record RelayRecord(string EventId, string SessionId, string MessageId, string SourceStudentId, string RelayStudentId, int HopCount, long Timestamp, string Status);
 
@@ -147,6 +147,22 @@ public class AttendanceDatabase : IDisposable
             syncEnrCmd.ExecuteNonQuery();
         }
         catch { }
+
+        try
+        {
+            using var alterModeCmd = _connection.CreateCommand();
+            alterModeCmd.CommandText = "ALTER TABLE sessions ADD COLUMN attendance_mode TEXT NOT NULL DEFAULT 'BLE';";
+            alterModeCmd.ExecuteNonQuery();
+        }
+        catch { /* column already exists */ }
+
+        try
+        {
+            using var alterFinalCmd = _connection.CreateCommand();
+            alterFinalCmd.CommandText = "ALTER TABLE sessions ADD COLUMN final_code TEXT;";
+            alterFinalCmd.ExecuteNonQuery();
+        }
+        catch { /* column already exists */ }
     }
 
 
@@ -406,7 +422,7 @@ public class AttendanceDatabase : IDisposable
         catch { return false; }
     }
 
-    public SessionRecord CreateSession(string classId, string teacherId, string subject, long durationMs = 600000)
+    public SessionRecord CreateSession(string classId, string teacherId, string subject, long durationMs = 600000, string attendanceMode = "BLE")
     {
         var sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(4));
         var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8));

@@ -61,6 +61,7 @@ class ClassSession(Base):
     expiration_time: Mapped[int] = mapped_column(BigInteger)
     random_nonce: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), default="ACTIVE")
+    attendance_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)  # BLE | BLE_CAPTCHA
 
 
 class Attendance(Base):
@@ -70,12 +71,30 @@ class Attendance(Base):
     student_id: Mapped[str] = mapped_column(String(32), index=True)
     timestamp: Mapped[int] = mapped_column(BigInteger)
     verification_status: Mapped[str] = mapped_column(String(16))
-    route_type: Mapped[str] = mapped_column(String(8))
+    route_type: Mapped[str] = mapped_column(String(16))
     rssi_evidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hop_count: Mapped[int] = mapped_column(Integer, default=0)
     via_student: Mapped[str | None] = mapped_column(String(128), nullable=True)
     synced: Mapped[bool] = mapped_column(Boolean, default=True)
     teacher_signature: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    ble_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    captcha_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    attendance_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class DemoCaptcha(Base):
+    """Session-bound classroom code for BLE_CAPTCHA attendance mode.
+    Ephemeral by design: one row per (session, generation); superseded rows are
+    invalidated, so only the latest active code can ever verify. Attendance
+    marks stored on Attendance.route_type, not here."""
+    __tablename__ = "demo_captchas"
+    captcha_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[int] = mapped_column(BigInteger)
+    expires_at: Mapped[int] = mapped_column(BigInteger)
+    invalid: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class DemoChallenge(Base):

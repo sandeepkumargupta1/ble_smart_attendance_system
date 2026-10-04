@@ -26,10 +26,21 @@ body{padding:24px;max-width:1000px;margin:auto}section{margin:20px 0;padding:20p
 <main id="workspace" hidden>
 <p><strong id="identity"></strong><button id="refresh">Refresh</button><button id="logout">Log out</button></p>
 <section id="teacher-panel" hidden>
-<h2>Teacher session</h2>
+<h2>Start attendance</h2>
 <label>Class <select id="class-select"></select></label>
+<fieldset style="border:1px solid #888;border-radius:6px;margin:8px 0"><legend>Select Attendance Mode</legend>
+<label><input type="radio" name="attendance-mode" id="mode-ble" value="BLE" checked> BLE Only</label>
+<label><input type="radio" name="attendance-mode" id="mode-ble-captcha" value="BLE_CAPTCHA"> BLE + CAPTCHA</label>
+</fieldset>
 <button id="start">Start 10-minute session</button>
 <button id="finalize">Finalize selected session</button>
+<div id="captcha-panel" hidden style="margin-top:12px;padding:12px;border:1px dashed #888;border-radius:6px">
+<h3 style="margin:4px 0">Attendance mode: BLE + CAPTCHA</h3>
+<p style="margin:4px 0">Show this classroom code to the class. Students can mark attendance through <em>either</em> BLE verification <em>or</em> the classroom code.</p>
+<p id="captcha-code" style="font-size:2.4em;letter-spacing:.35em;font-weight:700;margin:8px 0;font-family:monospace">&mdash;&mdash;&mdash;&mdash;&mdash;</p>
+<p>Expires in: <span id="captcha-countdown" class="mono">&mdash;</span></p>
+<button id="captcha-refresh">Refresh CAPTCHA</button>
+</div>
 </section>
 <section id="admin-panel" hidden>
 <h2>Create class</h2>
@@ -47,15 +58,17 @@ body{padding:24px;max-width:1000px;margin:auto}section{margin:20px 0;padding:20p
 <form id="join-form"><label>Join class code <input id="join-code" required maxlength="32"></label><button type="submit">Join class</button></form>
 <label>Simulated position <select id="position"><option value="near">Near</option><option value="back">Back</option><option value="outside">Outside</option></select></label>
 <label>Simulated route <select id="relay"><option value="">Direct</option></select></label>
+<div id="captcha-input-row" hidden><label>Classroom code <input id="captcha-input" maxlength="8" autocomplete="off" placeholder="7K4P9" style="text-transform:uppercase"></label></div>
 <button id="verify">Verify simulated presence</button>
 <button id="relay-on">Enable relay for selected session</button><button id="relay-off">Disable relay</button>
 <p>Outside + direct is rejected. For a simulated relay, another student must enable relay while near/back, then refresh this tab and select that student.</p>
+<p id="mode-note">In BLE + CAPTCHA sessions students can mark attendance through BLE verification or the classroom code.</p>
 </section>
 <section>
 <h2>Sessions and history</h2>
 <label>Session <select id="session-select"></select></label>
 <p id="session-status"></p>
-<table><thead><tr><th>Student</th><th>Name</th><th>Status</th><th>Route</th><th>Simulated RSSI</th></tr></thead><tbody id="attendance"></tbody></table>
+<table id="attendance-table"><thead id="attendance-head"><tr><th>Student</th><th>Name</th><th>Status</th><th>Route</th><th>Simulated RSSI</th></tr></thead><tbody id="attendance"></tbody></table>
 </section>
 </main>
 </body>

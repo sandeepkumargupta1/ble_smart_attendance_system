@@ -152,6 +152,10 @@ class AttendanceIn(BaseModel):
     hop_count: int = Field(default=0, ge=0, le=HOP_MAX)
     via_student: str | None = Field(default=None, max_length=128)
     teacher_signature: str | None = Field(default=None, max_length=256)
+    ble_verified: bool = False
+    captcha_verified: bool = False
+    verification_method: str | None = None
+    attendance_mode: str | None = None
 
 
 class ClassCreate(BaseModel):
@@ -218,7 +222,7 @@ def authorize_session(db: Session, session_id: str, user: dict):
 def validate_attendance(item: AttendanceIn, user: dict, db: Session):
     if item.session_id.startswith("demo_"):
         raise HTTPException(409, "Demo records must use the demo verification workflow")
-    if item.route_type not in ("DIRECT", "RELAY", "MANUAL") or item.verification_status not in ("ELIGIBLE", "PRESENT", "NOT_VERIFIED"):
+    if item.route_type not in ("DIRECT", "RELAY", "MANUAL", "CAPTCHA", "DIR+CAP", "RELAY+CAP") or item.verification_status not in ("ELIGIBLE", "PRESENT", "NOT_VERIFIED"):
         raise HTTPException(400, "Invalid attendance route or status")
     authorize_session(db, item.session_id, user)
 
@@ -285,9 +289,20 @@ def list_session(
             "student_id": r.student_id,
             "verification_status": r.verification_status,
             "route_type": r.route_type,
+            "attendance_mode": r.attendance_mode or session_mode(db, session_id),
+            "ble_verified": bool(r.ble_verified) if r.ble_verified is not None else (r.verification_status in ("ELIGIBLE", "PRESENT") and r.route_type != "CAPTCHA"),
+            "captcha_verified": bool(r.captcha_verified) if r.captcha_verified is not None else (r.route_type == "CAPTCHA"),
+            "verification_method": r.verification_method or (
+                ("BLE + CAPTCHA" if (r.ble_verified and r.captcha_verified) else ("BLE" if r.ble_verified else ("CAPTCHA" if r.captcha_verified else None)))
+            ),
         }
         for r in rows
     ]
+
+
+def session_mode(db: Session, session_id: str) -> str:
+    mode = db.scalar(select(ClassSession.attendance_mode).where(ClassSession.session_id == session_id))
+    return mode or "BLE"
 
 
 # ---- Strict Zero-Trust v2 API Endpoints ----
@@ -350,6 +365,12 @@ def list_session_v2(
             "student_id": r.student_id,
             "verification_status": r.verification_status,
             "route_type": r.route_type,
+            "attendance_mode": r.attendance_mode or session_mode(db, session_id),
+            "ble_verified": bool(r.ble_verified) if r.ble_verified is not None else (r.verification_status in ("ELIGIBLE", "PRESENT") and r.route_type != "CAPTCHA"),
+            "captcha_verified": bool(r.captcha_verified) if r.captcha_verified is not None else (r.route_type == "CAPTCHA"),
+            "verification_method": r.verification_method or (
+                ("BLE + CAPTCHA" if (r.ble_verified and r.captcha_verified) else ("BLE" if r.ble_verified else ("CAPTCHA" if r.captcha_verified else None)))
+            ),
         }
         for r in rows
     ]

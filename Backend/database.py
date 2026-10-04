@@ -25,6 +25,22 @@ def init_db() -> None:
             if "class_code" not in class_cols:
                 conn.execute(text("ALTER TABLE classes ADD COLUMN class_code VARCHAR(32)"))
                 conn.execute(text("UPDATE classes SET class_code = class_id WHERE class_code IS NULL"))
+            attendance_cols = {column["name"] for column in inspector.get_columns("attendance")}
+            if "captcha_verified" not in attendance_cols:
+                conn.execute(text("ALTER TABLE attendance ADD COLUMN captcha_verified BOOLEAN DEFAULT 0"))
+            if "ble_verified" not in attendance_cols:
+                conn.execute(text("ALTER TABLE attendance ADD COLUMN ble_verified BOOLEAN DEFAULT 0"))
+            if "verification_method" not in attendance_cols:
+                conn.execute(text("ALTER TABLE attendance ADD COLUMN verification_method VARCHAR(32)"))
+            if "attendance_mode" not in attendance_cols:
+                conn.execute(text("ALTER TABLE attendance ADD COLUMN attendance_mode VARCHAR(16)"))
+
+    if engine.dialect.name == "sqlite":
+        with engine.begin() as conn:
+            inspector = inspect(conn)
+            session_cols = {column["name"] for column in inspector.get_columns("sessions")}
+            if "attendance_mode" not in session_cols:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN attendance_mode VARCHAR(16)"))
 
     with SessionLocal.begin() as db:
         for model in (Administrator, Teacher, Student):
