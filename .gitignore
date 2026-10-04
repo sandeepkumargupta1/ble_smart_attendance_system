@@ -41,3 +41,4 @@ Thumbs.db
 *.p12
 *.pfx
 .kilo/
+.freebuff/
