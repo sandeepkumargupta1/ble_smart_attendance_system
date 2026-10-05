@@ -12,7 +12,8 @@ for p in (str(root_dir), str(backend_dir)):
 
 os.environ.setdefault("VERCEL", "1")
 
-try:
-    from Backend.main import app
-except ImportError:
-    from main import app
+from Backend.main import app as _app
+
+app = _app
+application = _app
+handler = _app
