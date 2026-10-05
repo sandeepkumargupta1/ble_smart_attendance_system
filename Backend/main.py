@@ -13,9 +13,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 import jwt
 
-from .database import SessionLocal, init_db
-from .models import Administrator, Attendance, Teacher, Student, CourseClass, ClassSession, AuditLog, RelayEvent, Enrollment
-from .security import hash_password, verify_password
+try:
+    from .database import SessionLocal, init_db
+    from .models import Administrator, Attendance, Teacher, Student, CourseClass, ClassSession, AuditLog, RelayEvent, Enrollment
+    from .security import hash_password, verify_password
+except (ImportError, ValueError):
+    from database import SessionLocal, init_db
+    from models import Administrator, Attendance, Teacher, Student, CourseClass, ClassSession, AuditLog, RelayEvent, Enrollment
+    from security import hash_password, verify_password
 
 init_db()
 
@@ -895,15 +900,53 @@ def get_my_classes_v2(
 from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from .demo import router as demo_router
+try:
+    from .demo import router as demo_router
+except (ImportError, ValueError):
+    from demo import router as demo_router
 
 app.include_router(demo_router)
+
 WEB_ROOT = Path(__file__).resolve().parent.parent / "webapp"
+if not (WEB_ROOT / "demo.html").exists():
+    for candidate in [
+        Path.cwd() / "webapp",
+        Path(__file__).resolve().parent / "webapp",
+        Path(__file__).resolve().parents[1] / "webapp",
+    ]:
+        if (candidate / "index.html").exists():
+            WEB_ROOT = candidate
+            break
 
 
 @app.get("/", include_in_schema=False)
+def home_page():
+    index_file = WEB_ROOT / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "BLE Attendance System API is running."}
+
+
+@app.get("/demo", include_in_schema=False)
+@app.get("/demo.html", include_in_schema=False)
 def demo_page():
-    return FileResponse(WEB_ROOT / "demo.html")
+    demo_file = WEB_ROOT / "demo.html"
+    if demo_file.exists():
+        return FileResponse(demo_file)
+    return {"message": "BLE Attendance System Demo not found."}
 
 
-app.mount("/webapp", StaticFiles(directory=WEB_ROOT), name="webapp")
+if WEB_ROOT.exists():
+    app.mount("/webapp", StaticFiles(directory=WEB_ROOT), name="webapp")
+
+    @app.get("/{file_name:path}", include_in_schema=False)
+    def static_proxy(file_name: str):
+        file_path = (WEB_ROOT / file_name).resolve()
+        try:
+            if file_path.is_relative_to(WEB_ROOT) and file_path.is_file():
+                return FileResponse(file_path)
+        except (ValueError, TypeError):
+            pass
+        raise HTTPException(status_code=404, detail="Not Found")
+
+

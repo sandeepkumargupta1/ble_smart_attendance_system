@@ -9,10 +9,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update, text
 from sqlalchemy.exc import IntegrityError
 
-from .database import SessionLocal
-from .main import require_authenticated_user, require_teacher
-from .models import Attendance, AuditLog, ClassSession, CourseClass, Enrollment, Student
-from .models import DemoCaptcha, DemoChallenge, DemoRelay
+try:
+    from .database import SessionLocal
+    from .main import require_authenticated_user, require_teacher
+    from .models import Attendance, AuditLog, ClassSession, CourseClass, Enrollment, Student
+    from .models import DemoCaptcha, DemoChallenge, DemoRelay
+except (ImportError, ValueError):
+    from database import SessionLocal
+    from main import require_authenticated_user, require_teacher
+    from models import Attendance, AuditLog, ClassSession, CourseClass, Enrollment, Student
+    from models import DemoCaptcha, DemoChallenge, DemoRelay
 
 router = APIRouter(prefix="/api/demo")
 

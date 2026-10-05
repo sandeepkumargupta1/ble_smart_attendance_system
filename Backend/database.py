@@ -3,14 +3,58 @@ import os
 import uuid as uuid_mod
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
-from .models import Administrator, Base, Teacher, CourseClass, Student, Enrollment
-from .security import hash_password
+import tempfile
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./attendance.db")
+try:
+    from .models import Administrator, Base, Teacher, CourseClass, Student, Enrollment
+    from .security import hash_password
+except (ImportError, ValueError):
+    from models import Administrator, Base, Teacher, CourseClass, Student, Enrollment
+    from security import hash_password
+
+
+def _resolve_database_url() -> str:
+    url = os.getenv("DATABASE_URL")
+    is_serverless = bool(
+        os.getenv("VERCEL")
+        or os.getenv("AWS_LAMBDA_FUNCTION_NAME")
+        or os.getenv("LAMBDA_TASK_ROOT")
+    )
+    if not is_serverless:
+        # Check if current directory is writable
+        try:
+            test_file = os.path.join(".", ".perm_test")
+            with open(test_file, "w") as f:
+                f.write("1")
+            os.remove(test_file)
+        except Exception:
+            is_serverless = True
+
+    if not url:
+        if is_serverless:
+            tmp_db = os.path.join(tempfile.gettempdir(), "attendance.db").replace("\\", "/")
+            return f"sqlite:///{tmp_db}"
+        return "sqlite:///./attendance.db"
+
+    # Compatibility: convert postgres:// to postgresql:// for SQLAlchemy
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
+    # In serverless, relative sqlite files cannot be written in the project root
+    if url.startswith("sqlite:///./") and is_serverless:
+        filename = url.replace("sqlite:///./", "")
+        tmp_db = os.path.join(tempfile.gettempdir(), filename).replace("\\", "/")
+        return f"sqlite:///{tmp_db}"
+
+    return url
+
+
+DATABASE_URL = _resolve_database_url()
 
 engine = create_engine(DATABASE_URL, future=True,
                        connect_args={"timeout": 30} if DATABASE_URL.startswith("sqlite:") else {})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
 
 
 def init_db() -> None:
